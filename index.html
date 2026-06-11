@@ -1,0 +1,163 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <meta name="theme-color" content="#f6f4ef" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-title" content="Meu Fluxo" />
+    <title>Meu Fluxo Mensal</title>
+    <link rel="manifest" href="manifest.webmanifest" />
+    <link rel="stylesheet" href="styles.css" />
+  </head>
+  <body>
+    <div id="app" class="app-shell">
+      <header class="topbar">
+        <div>
+          <p class="eyebrow">Controle financeiro</p>
+          <h1>Meu Fluxo Mensal</h1>
+        </div>
+        <select id="monthSelect" class="month-select" aria-label="Selecionar mes"></select>
+      </header>
+
+      <main>
+        <section id="view-summary" class="view active"></section>
+        <section id="view-expenses" class="view"></section>
+        <section id="view-revenues" class="view"></section>
+        <section id="view-year" class="view"></section>
+        <section id="view-history" class="view"></section>
+      </main>
+
+      <nav class="bottom-nav" aria-label="Navegacao principal">
+        <button class="nav-button active" data-view="summary" aria-label="Resumo">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7"/><path d="M5 10v10h14V10"/><path d="M9 20v-6h6v6"/></svg>
+          </span>
+          <span>Resumo</span>
+        </button>
+        <button class="nav-button" data-view="expenses" aria-label="Despesas">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h1"/><path d="M3 12h1"/><path d="M3 18h1"/></svg>
+          </span>
+          <span>Despesas</span>
+        </button>
+        <button class="nav-button" data-view="revenues" aria-label="Receitas">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M17 7.5c-.8-1.1-2.2-1.8-4-1.8-2.3 0-4 1.1-4 2.9 0 4 8 1.8 8 5.9 0 1.8-1.8 3-4.2 3-2 0-3.5-.7-4.8-2"/></svg>
+          </span>
+          <span>Receitas</span>
+        </button>
+        <button class="nav-button" data-view="year" aria-label="Ano">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 19V5"/><path d="M4 19h16"/><path d="M7 15l4-4 3 3 5-7"/></svg>
+          </span>
+          <span>Ano</span>
+        </button>
+        <button class="nav-button" data-view="history" aria-label="Historico">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M4 5h16v15H4z"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/><path d="M8 14h3"/><path d="M8 17h6"/></svg>
+          </span>
+          <span>Historico</span>
+        </button>
+      </nav>
+    </div>
+
+    <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+
+    <dialog id="expenseDialog" class="dialog">
+      <form id="expenseForm" novalidate>
+        <div class="dialog-head">
+          <h2 id="expenseDialogTitle">Nova despesa</h2>
+          <button class="icon-button" id="closeExpenseDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <input id="expenseId" type="hidden" />
+        <label>
+          Nome
+          <input id="expenseName" required autocomplete="off" />
+        </label>
+        <label>
+          Valor
+          <input id="expenseAmount" required inputmode="decimal" placeholder="0,00" />
+        </label>
+        <label>
+          Categoria
+          <select id="expenseCategory">
+            <option>Moradia</option>
+            <option>Transporte</option>
+            <option>Educacao</option>
+            <option>Saude e bem-estar</option>
+            <option>Assinaturas/Servicos</option>
+            <option>Lazer</option>
+            <option>Mercado</option>
+            <option>Cartao</option>
+            <option>Outros</option>
+          </select>
+        </label>
+        <label>
+          Forma de pagamento
+          <select id="expensePayment">
+            <option value="">Nao informado</option>
+            <option>Pix</option>
+            <option>Cartao</option>
+            <option>Boleto</option>
+            <option>Debito</option>
+            <option>Dinheiro</option>
+          </select>
+        </label>
+        <div class="parcel-grid">
+          <label>
+            Parcela atual
+            <input id="expenseInstallmentCurrent" inputmode="numeric" placeholder="1" />
+          </label>
+          <label>
+            Total de parcelas
+            <input id="expenseInstallmentTotal" inputmode="numeric" placeholder="1" />
+          </label>
+        </div>
+        <label class="check-row">
+          <input id="expensePaid" type="checkbox" />
+          Ja foi quitada
+        </label>
+        <button class="primary-button" id="saveExpenseButton" type="submit">Salvar despesa</button>
+      </form>
+    </dialog>
+
+    <dialog id="revenueDialog" class="dialog">
+      <form id="revenueForm" novalidate>
+        <div class="dialog-head">
+          <h2 id="revenueDialogTitle">Nova receita</h2>
+          <button class="icon-button" id="closeRevenueDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <input id="revenueId" type="hidden" />
+        <label>
+          Nome
+          <input id="revenueName" required autocomplete="off" />
+        </label>
+        <label>
+          Valor
+          <input id="revenueAmount" required inputmode="decimal" placeholder="0,00" />
+        </label>
+        <label>
+          Status
+          <select id="revenueStatus">
+            <option value="expected">Prevista</option>
+            <option value="received">Recebida</option>
+          </select>
+        </label>
+        <button class="primary-button" id="saveRevenueButton" type="submit">Salvar receita</button>
+      </form>
+    </dialog>
+
+    <dialog id="actionDialog" class="action-dialog">
+      <div class="action-sheet">
+        <h2 id="actionDialogTitle">Lancamento</h2>
+        <button class="sheet-button" id="actionEditButton" type="button">Editar</button>
+        <button class="sheet-button danger" id="actionDeleteButton" type="button">Deletar</button>
+        <button class="sheet-button muted" id="actionCancelButton" type="button">Cancelar</button>
+      </div>
+    </dialog>
+
+    <script src="data.js"></script>
+    <script src="app.js" defer></script>
+  </body>
+</html>
