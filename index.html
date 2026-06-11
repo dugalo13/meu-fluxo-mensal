@@ -17,15 +17,15 @@
           <p class="eyebrow">Controle financeiro</p>
           <h1>Meu Fluxo Mensal</h1>
         </div>
-        <select id="monthSelect" class="month-select" aria-label="Selecionar mes"></select>
+        <button id="monthButton" class="month-select" type="button" aria-label="Selecionar mes"></button>
       </header>
 
       <main>
         <section id="view-summary" class="view active"></section>
-        <section id="view-expenses" class="view"></section>
         <section id="view-revenues" class="view"></section>
+        <section id="view-card" class="view"></section>
         <section id="view-year" class="view"></section>
-        <section id="view-history" class="view"></section>
+        <section id="view-options" class="view"></section>
       </main>
 
       <nav class="bottom-nav" aria-label="Navegacao principal">
@@ -35,17 +35,17 @@
           </span>
           <span>Resumo</span>
         </button>
-        <button class="nav-button" data-view="expenses" aria-label="Despesas">
-          <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M8 6h13"/><path d="M8 12h13"/><path d="M8 18h13"/><path d="M3 6h1"/><path d="M3 12h1"/><path d="M3 18h1"/></svg>
-          </span>
-          <span>Despesas</span>
-        </button>
         <button class="nav-button" data-view="revenues" aria-label="Receitas">
           <span class="nav-icon" aria-hidden="true">
             <svg viewBox="0 0 24 24"><path d="M12 3v18"/><path d="M17 7.5c-.8-1.1-2.2-1.8-4-1.8-2.3 0-4 1.1-4 2.9 0 4 8 1.8 8 5.9 0 1.8-1.8 3-4.2 3-2 0-3.5-.7-4.8-2"/></svg>
           </span>
           <span>Receitas</span>
+        </button>
+        <button class="nav-button" data-view="card" aria-label="Cartao">
+          <span class="nav-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24"><path d="M3 7h18v12H3z"/><path d="M3 11h18"/><path d="M7 16h4"/></svg>
+          </span>
+          <span>Cartao</span>
         </button>
         <button class="nav-button" data-view="year" aria-label="Ano">
           <span class="nav-icon" aria-hidden="true">
@@ -53,16 +53,34 @@
           </span>
           <span>Ano</span>
         </button>
-        <button class="nav-button" data-view="history" aria-label="Historico">
+        <button class="nav-button" data-view="options" aria-label="Opcoes">
           <span class="nav-icon" aria-hidden="true">
-            <svg viewBox="0 0 24 24"><path d="M4 5h16v15H4z"/><path d="M8 3v4"/><path d="M16 3v4"/><path d="M4 10h16"/><path d="M8 14h3"/><path d="M8 17h6"/></svg>
+            <svg viewBox="0 0 24 24"><path d="M12 3v3"/><path d="M12 18v3"/><path d="M3 12h3"/><path d="M18 12h3"/><path d="M5.6 5.6l2.1 2.1"/><path d="M16.3 16.3l2.1 2.1"/><path d="M18.4 5.6l-2.1 2.1"/><path d="M7.7 16.3l-2.1 2.1"/><circle cx="12" cy="12" r="3"/></svg>
           </span>
-          <span>Historico</span>
+          <span>Opcoes</span>
         </button>
       </nav>
     </div>
 
     <input id="backupFileInput" type="file" accept="application/json,.json" hidden />
+
+    <dialog id="monthDialog" class="dialog">
+      <form id="monthForm" novalidate>
+        <div class="dialog-head">
+          <h2>Selecionar periodo</h2>
+          <button class="icon-button" id="closeMonthDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <label>
+          Mes
+          <select id="monthPicker"></select>
+        </label>
+        <label>
+          Ano
+          <input id="yearPicker" inputmode="numeric" placeholder="2026" />
+        </label>
+        <button class="primary-button" type="submit">Abrir mes</button>
+      </form>
+    </dialog>
 
     <dialog id="expenseDialog" class="dialog">
       <form id="expenseForm" novalidate>
@@ -152,6 +170,7 @@
       <div class="action-sheet">
         <h2 id="actionDialogTitle">Lancamento</h2>
         <button class="sheet-button" id="actionEditButton" type="button">Editar</button>
+        <button class="sheet-button" id="actionCardButton" type="button">Mostrar no cartao</button>
         <button class="sheet-button danger" id="actionDeleteButton" type="button">Deletar</button>
         <button class="sheet-button muted" id="actionCancelButton" type="button">Cancelar</button>
       </div>

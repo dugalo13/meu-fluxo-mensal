@@ -24,6 +24,22 @@ body {
   background: var(--bg);
 }
 
+body[data-theme="light"] {
+  --bg: #f6f4ef;
+  --panel: #ffffff;
+  --panel-soft: #f0ece3;
+  --ink: #202427;
+  --muted: #68716d;
+  --line: #ddd8cd;
+  --accent: #28b085;
+  --accent-strong: #0f6a54;
+  --amber: #c98422;
+  --red: #e85f55;
+  --green: #28b085;
+  --blue: #2d6cdf;
+  --shadow: 0 12px 28px rgba(43, 39, 32, 0.08);
+}
+
 button, input, select { font: inherit; }
 
 .app-shell {
@@ -75,6 +91,10 @@ h3 {
   background: var(--panel-soft);
   color: var(--ink);
   padding: 0 12px;
+}
+
+button.month-select {
+  font-weight: 900;
 }
 
 .view { display: none; }
@@ -161,6 +181,17 @@ h3 {
   grid-template-columns: 1fr 1fr;
   gap: 10px;
   margin: 12px 0;
+}
+
+.period-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 10px;
+}
+
+.full-button {
+  width: 100%;
+  margin-top: 12px;
 }
 
 .primary-button, .secondary-button {
@@ -394,6 +425,10 @@ h3 {
   border-top: 1px solid var(--line);
   background: rgba(16, 20, 24, 0.94);
   backdrop-filter: blur(12px);
+}
+
+body[data-theme="light"] .bottom-nav {
+  background: rgba(255, 255, 255, 0.94);
 }
 
 .nav-button {

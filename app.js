@@ -5,7 +5,10 @@ const state = {
   activeMonthId: "2026-06",
   activeView: "summary",
   expenseFilter: "all",
-  selectedAction: null
+  selectedAction: null,
+  theme: "dark",
+  chartStartId: null,
+  chartEndId: null
 };
 
 const money = new Intl.NumberFormat("pt-BR", {
@@ -19,13 +22,13 @@ const monthNames = [
 ];
 
 const app = {
-  monthSelect: document.querySelector("#monthSelect"),
+  monthButton: document.querySelector("#monthButton"),
   views: {
     summary: document.querySelector("#view-summary"),
-    expenses: document.querySelector("#view-expenses"),
     revenues: document.querySelector("#view-revenues"),
+    card: document.querySelector("#view-card"),
     year: document.querySelector("#view-year"),
-    history: document.querySelector("#view-history")
+    options: document.querySelector("#view-options")
   },
   dialog: document.querySelector("#expenseDialog"),
   form: document.querySelector("#expenseForm"),
@@ -48,9 +51,14 @@ const app = {
   actionDialog: document.querySelector("#actionDialog"),
   actionDialogTitle: document.querySelector("#actionDialogTitle"),
   actionEditButton: document.querySelector("#actionEditButton"),
+  actionCardButton: document.querySelector("#actionCardButton"),
   actionDeleteButton: document.querySelector("#actionDeleteButton"),
   actionCancelButton: document.querySelector("#actionCancelButton"),
-  backupFileInput: document.querySelector("#backupFileInput")
+  backupFileInput: document.querySelector("#backupFileInput"),
+  monthDialog: document.querySelector("#monthDialog"),
+  monthForm: document.querySelector("#monthForm"),
+  monthPicker: document.querySelector("#monthPicker"),
+  yearPicker: document.querySelector("#yearPicker")
 };
 
 init();
@@ -58,9 +66,13 @@ init();
 async function init() {
   const saved = localStorage.getItem(STORAGE_KEY);
   state.data = saved ? JSON.parse(saved) : await loadSeed();
+  state.theme = localStorage.getItem("meu-fluxo-theme") || "dark";
   normalizeData();
   const june = state.data.months.find((month) => month.id === "2026-06");
   state.activeMonthId = june ? "2026-06" : state.data.months.at(-1).id;
+  state.chartEndId = localStorage.getItem("meu-fluxo-chart-end") || state.activeMonthId;
+  state.chartStartId = localStorage.getItem("meu-fluxo-chart-start") || monthOffsetId(state.chartEndId, -11);
+  applyTheme();
   bindEvents();
   render();
 
@@ -88,14 +100,21 @@ function normalizeData() {
       revenue.status = revenue.status || "expected";
       revenue.name = cleanText(revenue.name || "");
     });
+    month.credit_card = month.credit_card || { invoice_total: 0, linked_expense_ids: [] };
+    month.credit_card.linked_expense_ids = month.credit_card.linked_expense_ids || [];
+    const linkedIds = new Set(month.credit_card.linked_expense_ids);
+    month.expenses.forEach((expense) => {
+      if (linkedIds.has(expense.id)) expense.show_in_card = true;
+    });
+    syncCardOtherExpense(month);
   });
+  sortMonths();
 }
 
 function bindEvents() {
-  app.monthSelect.addEventListener("change", (event) => {
-    state.activeMonthId = event.target.value;
-    render();
-  });
+  app.monthButton.addEventListener("click", openMonthDialog);
+  app.monthForm.addEventListener("submit", selectMonthFromDialog);
+  document.querySelector("#closeMonthDialog").addEventListener("click", () => app.monthDialog.close());
 
   document.querySelectorAll(".nav-button").forEach((button) => {
     button.addEventListener("click", () => {
@@ -124,6 +143,7 @@ function bindEvents() {
 
   app.actionCancelButton.addEventListener("click", () => closeActionDialog());
   app.actionEditButton.addEventListener("click", () => editSelectedAction());
+  app.actionCardButton.addEventListener("click", () => toggleSelectedExpenseCardVisibility());
   app.actionDeleteButton.addEventListener("click", () => deleteSelectedAction());
   app.backupFileInput.addEventListener("change", importBackupFromFile);
 }
@@ -136,20 +156,17 @@ function render() {
   renderMonthPicker();
   renderNav();
   renderSummary();
-  renderExpenses();
   renderRevenues();
+  renderCard();
   renderYear();
-  renderHistory();
+  renderOptions();
   Object.entries(app.views).forEach(([name, view]) => {
     view.classList.toggle("active", name === state.activeView);
   });
 }
 
 function renderMonthPicker() {
-  app.monthSelect.innerHTML = state.data.months
-    .map((month) => `<option value="${month.id}">${monthLabel(month)}</option>`)
-    .join("");
-  app.monthSelect.value = state.activeMonthId;
+  app.monthButton.textContent = monthLabel(activeMonth());
 }
 
 function renderNav() {
@@ -166,7 +183,84 @@ function monthLabel(month) {
   return `${monthNames[month.month - 1]} ${month.year}`;
 }
 
+function openMonthDialog() {
+  app.monthPicker.innerHTML = monthNames.map((name, index) => (
+    `<option value="${index + 1}">${name}</option>`
+  )).join("");
+  const month = activeMonth();
+  app.monthPicker.value = month.month;
+  app.yearPicker.value = month.year;
+  app.monthDialog.showModal();
+}
+
+function selectMonthFromDialog(event) {
+  event.preventDefault();
+  const monthNumber = Number(app.monthPicker.value);
+  const year = Number(app.yearPicker.value);
+  if (!year || year < 2000 || year > 2100) {
+    app.yearPicker.reportValidity();
+    return;
+  }
+  const month = ensureMonth(year, monthNumber);
+  state.activeMonthId = month.id;
+  app.monthDialog.close();
+  save();
+  render();
+}
+
+function ensureMonth(year, monthNumber) {
+  const id = `${year}-${String(monthNumber).padStart(2, "0")}`;
+  let month = state.data.months.find((item) => item.id === id);
+  if (!month) {
+    month = {
+      id,
+      year,
+      month: monthNumber,
+      label: `${String(monthNumber).padStart(2, "0")}/${year}`,
+      closed: false,
+      summary: { total_expenses: 0, total_revenues: 0, balance: 0 },
+      expenses: [],
+      revenues: [],
+      credit_card: { invoice_total: 0, linked_expense_ids: [] },
+      source_sheet: "manual",
+      source_rows: []
+    };
+    state.data.months.push(month);
+    sortMonths();
+  }
+  return month;
+}
+
+function sortMonths() {
+  state.data.months.sort((a, b) => a.id.localeCompare(b.id));
+}
+
+function monthOffset(month, offset) {
+  const date = new Date(month.year, month.month - 1 + offset, 1);
+  return ensureMonth(date.getFullYear(), date.getMonth() + 1);
+}
+
+function monthOffsetId(monthId, offset) {
+  const [year, month] = monthId.split("-").map(Number);
+  const date = new Date(year, month - 1 + offset, 1);
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}`;
+}
+
+function monthsBetween(startId, endId) {
+  const [startYear, startMonth] = startId.split("-").map(Number);
+  const [endYear, endMonth] = endId.split("-").map(Number);
+  const months = [];
+  const cursor = new Date(startYear, startMonth - 1, 1);
+  const end = new Date(endYear, endMonth - 1, 1);
+  while (cursor <= end && months.length < 12) {
+    months.push(ensureMonth(cursor.getFullYear(), cursor.getMonth() + 1));
+    cursor.setMonth(cursor.getMonth() + 1);
+  }
+  return months;
+}
+
 function totals(month) {
+  syncCardOtherExpense(month);
   const expenses = sum(month.expenses.map((expense) => Number(expense.amount) || 0));
   const paid = sum(month.expenses.filter((expense) => expense.status === "paid").map((expense) => Number(expense.amount) || 0));
   const revenues = sum(month.revenues.map((revenue) => Number(revenue.amount) || 0));
@@ -186,9 +280,7 @@ function sum(values) {
 function renderSummary() {
   const month = activeMonth();
   const total = totals(month);
-  const topExpenses = [...month.expenses]
-    .sort((a, b) => (b.amount || 0) - (a.amount || 0))
-    .slice(0, 6);
+  const expenses = [...month.expenses];
   const paidWidth = total.expenses > 0 ? Math.max(0, Math.min(100, (total.paid / total.expenses) * 100)) : 0;
 
   app.views.summary.innerHTML = `
@@ -209,10 +301,6 @@ function renderSummary() {
       <button class="primary-button" id="openExpense">+ Despesa</button>
       <button class="secondary-button" id="openRevenue">+ Receita</button>
     </div>
-    <div class="actions">
-      <button class="secondary-button" id="importBackup">Importar backup</button>
-      <button class="secondary-button" id="exportBackup">Exportar backup</button>
-    </div>
     <section class="panel section">
       <h2>Quitado x em aberto</h2>
       <div class="split-bar" aria-label="Quitado versus em aberto">
@@ -222,17 +310,15 @@ function renderSummary() {
       <p class="small">${money.format(total.paid)} quitado de ${money.format(total.expenses)} previstos.</p>
     </section>
     <section class="section">
-      <h2>Principais despesas</h2>
+      <h2>Despesas</h2>
       <div class="list">
-        ${topExpenses.map(expenseRow).join("")}
+        ${expenses.length ? expenses.map(expenseRow).join("") : emptyPanel("Nenhuma despesa cadastrada para esse mes.")}
       </div>
     </section>
   `;
 
   document.querySelector("#openExpense").addEventListener("click", () => openExpenseDialog());
   document.querySelector("#openRevenue").addEventListener("click", () => openRevenueDialog());
-  document.querySelector("#importBackup").addEventListener("click", () => app.backupFileInput.click());
-  document.querySelector("#exportBackup").addEventListener("click", exportBackup);
   bindExpenseControls(app.views.summary);
 }
 
@@ -243,54 +329,6 @@ function metric(label, value, tone = "neutral") {
       <p class="metric-value">${value}</p>
     </article>
   `;
-}
-
-function renderExpenses() {
-  const month = activeMonth();
-  const categories = ["all", "open", "paid", ...new Set(month.expenses.map((expense) => normalizeCategory(expense.category)))];
-  const filtered = filterExpenses(month.expenses);
-
-  app.views.expenses.innerHTML = `
-    <div class="section">
-      <h2>Despesas de ${monthLabel(month)}</h2>
-      <div class="filters">
-        ${categories.map((category) => filterChip(category)).join("")}
-      </div>
-      <div class="list">
-        ${filtered.length ? filtered.map(expenseRow).join("") : emptyPanel("Nenhuma despesa nesse filtro.")}
-      </div>
-      <div class="actions">
-        <button class="primary-button" id="addExpenseFromList">+ Nova despesa</button>
-        <button class="secondary-button" id="markClosed">${month.closed ? "Mes conferido" : "Marcar conferido"}</button>
-      </div>
-    </div>
-  `;
-
-  app.views.expenses.querySelectorAll(".chip").forEach((chip) => {
-    chip.addEventListener("click", () => {
-      state.expenseFilter = chip.dataset.filter;
-      renderExpenses();
-    });
-  });
-  document.querySelector("#addExpenseFromList").addEventListener("click", () => openExpenseDialog());
-  document.querySelector("#markClosed").addEventListener("click", () => {
-    month.closed = !month.closed;
-    save();
-    renderExpenses();
-  });
-  bindExpenseControls(app.views.expenses);
-}
-
-function filterChip(value) {
-  const labels = { all: "Todas", open: "Abertas", paid: "Quitadas" };
-  return `<button class="chip ${state.expenseFilter === value ? "active" : ""}" data-filter="${escapeHtml(value)}">${labels[value] || escapeHtml(value)}</button>`;
-}
-
-function filterExpenses(expenses) {
-  if (state.expenseFilter === "open") return expenses.filter((expense) => expense.status !== "paid");
-  if (state.expenseFilter === "paid") return expenses.filter((expense) => expense.status === "paid");
-  if (state.expenseFilter === "all") return expenses;
-  return expenses.filter((expense) => normalizeCategory(expense.category) === state.expenseFilter);
 }
 
 function expenseRow(expense) {
@@ -401,12 +439,123 @@ function findRevenue(id) {
   return null;
 }
 
+function renderCard() {
+  const month = activeMonth();
+  const card = month.credit_card || { invoice_total: 0, linked_expense_ids: [] };
+  const linkedTotal = cardLinkedTotal(month);
+  const other = Math.max(0, (Number(card.invoice_total) || 0) - linkedTotal);
+  const linkedIds = new Set(card.linked_expense_ids || []);
+  const candidates = month.expenses.filter((expense) => (
+    !expense.is_card_auto && (expense.show_in_card || linkedIds.has(expense.id))
+  ));
+
+  app.views.card.innerHTML = `
+    <section class="section">
+      <h2>Cartao de ${monthLabel(month)}</h2>
+      <div class="panel">
+        <label>
+          Valor total da fatura
+          <input id="cardInvoiceTotal" inputmode="decimal" value="${Number(card.invoice_total || 0).toFixed(2).replace(".", ",")}" />
+        </label>
+        <div class="grid section">
+          ${metric("Ja detalhado", money.format(linkedTotal), "yellow")}
+          ${metric("Outras despesas", money.format(other), "red")}
+        </div>
+        <p class="small">O app calcula: fatura total menos despesas ja detalhadas. A diferenca entra automaticamente como Outras despesas no cartao.</p>
+      </div>
+    </section>
+    <section class="section">
+      <h2>Despesas ja dentro da fatura</h2>
+      <div class="list">
+        ${candidates.length ? candidates.map((expense) => cardExpenseRow(expense, card.linked_expense_ids.includes(expense.id))).join("") : emptyPanel("Toque em uma despesa e escolha Mostrar no cartao para ela aparecer aqui.")}
+      </div>
+    </section>
+  `;
+
+  document.querySelector("#cardInvoiceTotal").addEventListener("change", (event) => {
+    month.credit_card.invoice_total = parseAmount(event.target.value);
+    syncCardOtherExpense(month);
+    save();
+    render();
+  });
+
+  app.views.card.querySelectorAll(".card-link-check").forEach((checkbox) => {
+    checkbox.addEventListener("change", () => {
+      const ids = new Set(month.credit_card.linked_expense_ids || []);
+      if (checkbox.checked) ids.add(checkbox.dataset.id);
+      else ids.delete(checkbox.dataset.id);
+      month.credit_card.linked_expense_ids = [...ids];
+      syncCardOtherExpense(month);
+      save();
+      render();
+    });
+  });
+}
+
+function cardExpenseRow(expense, checked) {
+  return `
+    <article class="expense-row">
+      <input class="toggle-paid card-link-check" type="checkbox" data-id="${expense.id}" ${checked ? "checked" : ""} aria-label="Incluir ${escapeHtml(cleanText(expense.name))} no cartao" />
+      <div>
+        <p class="expense-name">${escapeHtml(cleanText(expense.name))}</p>
+        <p class="expense-meta">${escapeHtml(normalizeCategory(expense.category))}</p>
+      </div>
+      <strong class="amount">${money.format(Number(expense.amount) || 0)}</strong>
+    </article>
+  `;
+}
+
+function cardLinkedTotal(month) {
+  const ids = new Set(month.credit_card?.linked_expense_ids || []);
+  return sum(month.expenses
+    .filter((expense) => ids.has(expense.id) && !expense.is_card_auto)
+    .map((expense) => Number(expense.amount) || 0));
+}
+
+function syncCardOtherExpense(month) {
+  month.credit_card = month.credit_card || { invoice_total: 0, linked_expense_ids: [] };
+  const existingIds = new Set(month.expenses.map((expense) => expense.id));
+  month.credit_card.linked_expense_ids = (month.credit_card.linked_expense_ids || []).filter((id) => existingIds.has(id));
+  const linkedTotal = cardLinkedTotal(month);
+  const other = Math.max(0, (Number(month.credit_card.invoice_total) || 0) - linkedTotal);
+  const autoId = `${month.id}-card-other-auto`;
+  let autoExpense = month.expenses.find((expense) => expense.id === autoId || expense.is_card_auto);
+  if (other <= 0) {
+    month.expenses = month.expenses.filter((expense) => expense.id !== autoId && !expense.is_card_auto);
+    return;
+  }
+  if (!autoExpense) {
+    autoExpense = {
+      id: autoId,
+      name: "Outras despesas no cartao",
+      amount: other,
+      category: "Cartao",
+      payment_method: "Cartao",
+      status: "open",
+      type: "card-auto",
+      is_card_auto: true
+    };
+    month.expenses.push(autoExpense);
+  } else {
+    autoExpense.id = autoId;
+    autoExpense.name = "Outras despesas no cartao";
+    autoExpense.amount = other;
+    autoExpense.category = "Cartao";
+    autoExpense.payment_method = "Cartao";
+    autoExpense.is_card_auto = true;
+  }
+}
+
 function openActionDialog(type, id) {
   state.selectedAction = { type, id };
   const found = type === "expense" ? findExpense(id) : findRevenue(id);
   const item = type === "expense" ? found?.expense : found?.revenue;
   if (!item) return;
   app.actionDialogTitle.textContent = cleanText(item.name);
+  app.actionCardButton.hidden = type !== "expense";
+  if (type === "expense") {
+    app.actionCardButton.textContent = item.show_in_card ? "Remover do cartao" : "Mostrar no cartao";
+  }
   app.actionDialog.showModal();
 }
 
@@ -428,6 +577,22 @@ function editSelectedAction() {
   }
 }
 
+function toggleSelectedExpenseCardVisibility() {
+  const selected = state.selectedAction;
+  closeActionDialog();
+  if (!selected || selected.type !== "expense") return;
+  const found = findExpense(selected.id);
+  if (!found) return;
+  found.expense.show_in_card = !found.expense.show_in_card;
+  if (!found.expense.show_in_card && found.month.credit_card) {
+    found.month.credit_card.linked_expense_ids = (found.month.credit_card.linked_expense_ids || [])
+      .filter((id) => id !== found.expense.id);
+    syncCardOtherExpense(found.month);
+  }
+  save();
+  render();
+}
+
 function deleteSelectedAction() {
   const selected = state.selectedAction;
   closeActionDialog();
@@ -445,6 +610,47 @@ function deleteSelectedAction() {
   }
   save();
   render();
+}
+
+function renderOptions() {
+  app.views.options.innerHTML = `
+    <section class="section">
+      <h2>Opcoes</h2>
+      <div class="panel">
+        <label>
+          Tema do app
+          <select id="themeSelect">
+            <option value="dark">Escuro</option>
+            <option value="light">Claro</option>
+          </select>
+        </label>
+      </div>
+    </section>
+    <section class="section">
+      <h2>Backup</h2>
+      <div class="actions">
+        <button class="secondary-button" id="importBackup">Importar backup</button>
+        <button class="secondary-button" id="exportBackup">Exportar backup</button>
+      </div>
+      <p class="small">Use exportar backup para guardar seus dados. Use importar backup para restaurar ou levar os dados para outro aparelho.</p>
+    </section>
+  `;
+
+  const themeSelect = document.querySelector("#themeSelect");
+  themeSelect.value = state.theme;
+  themeSelect.addEventListener("change", () => {
+    state.theme = themeSelect.value;
+    localStorage.setItem("meu-fluxo-theme", state.theme);
+    applyTheme();
+  });
+  document.querySelector("#importBackup").addEventListener("click", () => app.backupFileInput.click());
+  document.querySelector("#exportBackup").addEventListener("click", exportBackup);
+}
+
+function applyTheme() {
+  document.body.dataset.theme = state.theme === "light" ? "light" : "dark";
+  const metaTheme = document.querySelector('meta[name="theme-color"]');
+  if (metaTheme) metaTheme.setAttribute("content", state.theme === "light" ? "#f6f4ef" : "#101418");
 }
 
 function exportBackup() {
@@ -486,8 +692,8 @@ function importBackupFromFile(event) {
 }
 
 function renderYear() {
-  const year = activeMonth().year;
-  const months = state.data.months.filter((month) => month.year === year);
+  const months = chartMonths();
+  const periodLabel = `${monthLabel(months[0])} a ${monthLabel(months[months.length - 1])}`;
   const yearTotals = months.map(totals);
   const totalExpenses = sum(yearTotals.map((item) => item.expenses));
   const totalRevenues = sum(yearTotals.map((item) => item.revenues));
@@ -495,14 +701,38 @@ function renderYear() {
   const averageBalance = months.length ? balance / months.length : 0;
 
   app.views.year.innerHTML = `
+    <section class="panel section">
+      <h2>Periodo do grafico</h2>
+      <div class="period-grid">
+        <label>
+          Mes inicial
+          <select id="chartStartMonth">${monthOptions(Number(state.chartStartId.split("-")[1]))}</select>
+        </label>
+        <label>
+          Ano inicial
+          <input id="chartStartYear" inputmode="numeric" value="${state.chartStartId.split("-")[0]}" />
+        </label>
+        <label>
+          Mes final
+          <select id="chartEndMonth">${monthOptions(Number(state.chartEndId.split("-")[1]))}</select>
+        </label>
+        <label>
+          Ano final
+          <input id="chartEndYear" inputmode="numeric" value="${state.chartEndId.split("-")[0]}" />
+        </label>
+      </div>
+      <button class="secondary-button full-button" id="applyChartPeriod" type="button">Atualizar grafico</button>
+      <p class="small">O grafico mostra no maximo 12 meses.</p>
+    </section>
     <div class="grid section">
-      ${metric(`Gasto em ${year}`, money.format(totalExpenses), "red")}
+      ${metric("Gasto no periodo", money.format(totalExpenses), "red")}
       ${metric("Recebido", money.format(totalRevenues), "green")}
       ${metric("Saldo acumulado", money.format(balance), balance >= 0 ? "green" : "red")}
       ${metric("Media do saldo", money.format(averageBalance), averageBalance >= 0 ? "green" : "red")}
     </div>
     <section class="panel section">
       <h2>Saldo mes a mes</h2>
+      <p class="small">${periodLabel} - limite de 12 meses.</p>
       ${lineChart(months, yearTotals)}
     </section>
     <section class="panel section">
@@ -524,7 +754,48 @@ function renderYear() {
       </div>
     </section>
   `;
+  document.querySelector("#applyChartPeriod").addEventListener("click", applyChartPeriod);
   bindHistoryRows(app.views.year);
+}
+
+function chartMonths() {
+  let startId = state.chartStartId || monthOffsetId(state.activeMonthId, -11);
+  let endId = state.chartEndId || state.activeMonthId;
+  if (startId > endId) [startId, endId] = [endId, startId];
+  return monthsBetween(startId, endId);
+}
+
+function monthOptions(selectedMonth) {
+  return monthNames.map((name, index) => {
+    const value = index + 1;
+    return `<option value="${value}" ${value === selectedMonth ? "selected" : ""}>${name}</option>`;
+  }).join("");
+}
+
+function applyChartPeriod() {
+  const startMonth = Number(document.querySelector("#chartStartMonth").value);
+  const startYear = Number(document.querySelector("#chartStartYear").value);
+  const endMonth = Number(document.querySelector("#chartEndMonth").value);
+  const endYear = Number(document.querySelector("#chartEndYear").value);
+  if (!startYear || !endYear || startYear < 2000 || endYear > 2100) return;
+
+  let startId = `${startYear}-${String(startMonth).padStart(2, "0")}`;
+  let endId = `${endYear}-${String(endMonth).padStart(2, "0")}`;
+  if (startId > endId) [startId, endId] = [endId, startId];
+
+  const startDate = new Date(Number(startId.slice(0, 4)), Number(startId.slice(5, 7)) - 1, 1);
+  const endDate = new Date(Number(endId.slice(0, 4)), Number(endId.slice(5, 7)) - 1, 1);
+  const diffMonths = (endDate.getFullYear() - startDate.getFullYear()) * 12 + endDate.getMonth() - startDate.getMonth();
+  if (diffMonths > 11) {
+    startId = monthOffsetId(endId, -11);
+  }
+
+  state.chartStartId = startId;
+  state.chartEndId = endId;
+  localStorage.setItem("meu-fluxo-chart-start", startId);
+  localStorage.setItem("meu-fluxo-chart-end", endId);
+  save();
+  renderYear();
 }
 
 function lineChart(months, totalsByMonth) {
@@ -706,13 +977,12 @@ function saveExpenseFromDialog() {
 }
 
 function addInstallmentExpenses(input) {
-  const startIndex = state.data.months.findIndex((month) => month.id === state.activeMonthId);
+  const startMonth = activeMonth();
   const totalToCreate = Math.max(1, input.total - input.current + 1);
   const groupId = `custom-${Date.now()}`;
 
   for (let offset = 0; offset < totalToCreate; offset += 1) {
-    const month = state.data.months[startIndex + offset];
-    if (!month) break;
+    const month = monthOffset(startMonth, offset);
     const current = input.current + offset;
     const isInstallment = input.total > 1;
     month.expenses.push({
