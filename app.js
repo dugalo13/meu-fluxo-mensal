@@ -68,8 +68,7 @@ async function init() {
   state.data = saved ? JSON.parse(saved) : await loadSeed();
   state.theme = localStorage.getItem("meu-fluxo-theme") || "dark";
   normalizeData();
-  const june = state.data.months.find((month) => month.id === "2026-06");
-  state.activeMonthId = june ? "2026-06" : state.data.months.at(-1).id;
+  state.activeMonthId = financialMonthForToday().id;
   state.chartEndId = localStorage.getItem("meu-fluxo-chart-end") || state.activeMonthId;
   state.chartStartId = localStorage.getItem("meu-fluxo-chart-start") || monthOffsetId(state.chartEndId, -11);
   applyTheme();
@@ -181,6 +180,13 @@ function activeMonth() {
 
 function monthLabel(month) {
   return `${monthNames[month.month - 1]} ${month.year}`;
+}
+
+function financialMonthForToday() {
+  const today = new Date();
+  const monthOffsetValue = today.getDate() >= 20 ? 1 : 0;
+  const financialDate = new Date(today.getFullYear(), today.getMonth() + monthOffsetValue, 1);
+  return ensureMonth(financialDate.getFullYear(), financialDate.getMonth() + 1);
 }
 
 function openMonthDialog() {
