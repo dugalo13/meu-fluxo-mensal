@@ -1,5 +1,5 @@
 const STORAGE_KEY = "meu-fluxo-data-v2";
-const APP_VERSION = "12";
+const APP_VERSION = "13";
 
 const state = {
   data: null,
@@ -764,14 +764,18 @@ function renderCard() {
     <section class="section">
       <h2>Cartao de ${monthLabel(month)}</h2>
       <div class="panel">
-        <label>
-          Valor total da fatura
-          <input id="cardInvoiceTotal" class="money-input" inputmode="numeric" value="${formatMoneyInput(card.invoice_total)}" ${month.closed ? "disabled" : ""} />
-        </label>
+        <form id="cardInvoiceForm" class="card-invoice-form">
+          <label>
+            Total real da fatura
+            <input id="cardInvoiceTotal" class="money-input" inputmode="numeric" value="${formatMoneyInput(card.invoice_total)}" />
+          </label>
+          <button class="secondary-button" type="submit">Salvar fatura</button>
+        </form>
         <div class="grid section">
           ${metric("Ja detalhado", money.format(linkedTotal), "yellow")}
           ${metric("Outras despesas", money.format(other), "red")}
         </div>
+        <p class="small">O total da fatura e livre para alteracao. Despesas fixas apenas registram o que o cartao ja tinha antes da virada financeira do dia 20.</p>
         <p class="small">O app calcula: fatura total menos despesas ja detalhadas. A diferenca entra automaticamente como Outras despesas no cartao.</p>
       </div>
     </section>
@@ -783,8 +787,10 @@ function renderCard() {
     </section>
   `;
 
-  document.querySelector("#cardInvoiceTotal").addEventListener("change", (event) => {
-    month.credit_card.invoice_total = parseAmount(event.target.value);
+  document.querySelector("#cardInvoiceForm").addEventListener("submit", (event) => {
+    event.preventDefault();
+    const input = document.querySelector("#cardInvoiceTotal");
+    month.credit_card.invoice_total = parseAmount(input.value);
     syncCardOtherExpense(month);
     save();
     render();

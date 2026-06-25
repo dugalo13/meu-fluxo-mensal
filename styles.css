@@ -193,6 +193,13 @@ button.month-select {
   gap: 10px;
 }
 
+.card-invoice-form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 10px;
+  align-items: end;
+}
+
 .full-button {
   width: 100%;
   margin-top: 12px;
@@ -892,6 +899,14 @@ label {
 @media (max-width: 520px) {
   .expense-tools {
     grid-template-columns: 1fr;
+  }
+
+  .card-invoice-form {
+    grid-template-columns: 1fr;
+  }
+
+  .card-invoice-form button {
+    width: 100%;
   }
 
   .month-status {
