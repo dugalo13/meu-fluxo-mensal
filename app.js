@@ -1,4 +1,5 @@
 const STORAGE_KEY = "meu-fluxo-data-v2";
+const APP_VERSION = "12";
 
 const state = {
   data: null,
@@ -114,7 +115,15 @@ async function init() {
   render();
 
   if ("serviceWorker" in navigator) {
-    navigator.serviceWorker.register("./sw.js").catch(() => {});
+    let refreshing = false;
+    navigator.serviceWorker.addEventListener("controllerchange", () => {
+      if (refreshing) return;
+      refreshing = true;
+      window.location.reload();
+    });
+    navigator.serviceWorker.register(`./sw.js?v=${APP_VERSION}`, { updateViaCache: "none" })
+      .then((registration) => registration.update())
+      .catch(() => {});
   }
 }
 
@@ -988,6 +997,16 @@ function renderOptions() {
       </div>
       <p class="small">Use exportar backup para guardar seus dados. Use importar backup para restaurar ou levar os dados para outro aparelho.</p>
     </section>
+    <section class="section">
+      <h2>Atualizacao</h2>
+      <div class="panel update-panel">
+        <div>
+          <p class="expense-name">Versao ${APP_VERSION}</p>
+          <p class="small">Se uma novidade nao aparecer, verifique a atualizacao.</p>
+        </div>
+        <button class="secondary-button" id="forceAppUpdate" type="button">Verificar atualizacao</button>
+      </div>
+    </section>
   `;
 
   const themeSelect = document.querySelector("#themeSelect");
@@ -999,6 +1018,23 @@ function renderOptions() {
   });
   document.querySelector("#importBackup").addEventListener("click", () => app.backupFileInput.click());
   document.querySelector("#exportBackup").addEventListener("click", exportBackup);
+  document.querySelector("#forceAppUpdate").addEventListener("click", forceAppUpdate);
+}
+
+async function forceAppUpdate() {
+  const button = document.querySelector("#forceAppUpdate");
+  button.disabled = true;
+  button.textContent = "Verificando...";
+  try {
+    const registration = await navigator.serviceWorker?.getRegistration();
+    if (registration) await registration.update();
+  } catch {
+    // The versioned reload below still bypasses an older cached page.
+  }
+  const url = new URL(window.location.href);
+  url.searchParams.set("v", APP_VERSION);
+  url.searchParams.set("update", String(Date.now()));
+  window.location.replace(url.toString());
 }
 
 function applyTheme() {

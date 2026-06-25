@@ -611,6 +611,17 @@ button.month-select {
   font-size: 0.86rem;
 }
 
+.update-panel {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.update-panel p {
+  margin-bottom: 0;
+}
+
 .forecast-value {
   margin: 0;
   font-size: 1.55rem;
@@ -914,6 +925,11 @@ label {
 
   .nubank-dialog .section-title-row {
     align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .update-panel {
+    align-items: stretch;
     flex-direction: column;
   }
 
