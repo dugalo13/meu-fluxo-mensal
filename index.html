@@ -95,7 +95,11 @@
         </label>
         <label>
           Valor
-          <input id="expenseAmount" required inputmode="decimal" placeholder="0,00" />
+          <input id="expenseAmount" class="money-input" required inputmode="numeric" value="0,00" />
+        </label>
+        <label>
+          Vencimento
+          <input id="expenseDueDate" type="date" />
         </label>
         <label>
           Categoria
@@ -133,6 +137,14 @@
           </label>
         </div>
         <label class="check-row">
+          <input id="expenseRecurring" type="checkbox" />
+          Repetir mensalmente
+        </label>
+        <label id="expenseRecurringCountLabel" hidden>
+          Quantidade de meses
+          <input id="expenseRecurringCount" inputmode="numeric" value="12" />
+        </label>
+        <label class="check-row">
           <input id="expensePaid" type="checkbox" />
           Ja foi quitada
         </label>
@@ -153,7 +165,11 @@
         </label>
         <label>
           Valor
-          <input id="revenueAmount" required inputmode="decimal" placeholder="0,00" />
+          <input id="revenueAmount" class="money-input" required inputmode="numeric" value="0,00" />
+        </label>
+        <label>
+          Data prevista
+          <input id="revenueDueDate" type="date" />
         </label>
         <label>
           Status
@@ -161,6 +177,14 @@
             <option value="expected">Prevista</option>
             <option value="received">Recebida</option>
           </select>
+        </label>
+        <label class="check-row">
+          <input id="revenueRecurring" type="checkbox" />
+          Repetir mensalmente
+        </label>
+        <label id="revenueRecurringCountLabel" hidden>
+          Quantidade de meses
+          <input id="revenueRecurringCount" inputmode="numeric" value="12" />
         </label>
         <button class="primary-button" id="saveRevenueButton" type="submit">Salvar receita</button>
       </form>
@@ -170,11 +194,88 @@
       <div class="action-sheet">
         <h2 id="actionDialogTitle">Lancamento</h2>
         <button class="sheet-button" id="actionEditButton" type="button">Editar</button>
+        <button class="sheet-button" id="actionEditSeriesButton" type="button" hidden>Editar toda a serie</button>
         <button class="sheet-button" id="actionCardButton" type="button">Mostrar no cartao</button>
         <button class="sheet-button danger" id="actionDeleteButton" type="button">Deletar</button>
+        <button class="sheet-button danger" id="actionDeleteSeriesButton" type="button" hidden>Deletar toda a serie</button>
         <button class="sheet-button muted" id="actionCancelButton" type="button">Cancelar</button>
       </div>
     </dialog>
+
+    <dialog id="budgetDialog" class="dialog">
+      <form id="budgetForm" novalidate>
+        <div class="dialog-head">
+          <h2>Limites por categoria</h2>
+          <button class="icon-button" id="closeBudgetDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <div id="budgetFields" class="budget-fields"></div>
+        <button class="primary-button" type="submit">Salvar limites</button>
+      </form>
+    </dialog>
+
+    <dialog id="nubankDialog" class="dialog nubank-dialog">
+      <div class="nubank-dialog-content">
+        <div class="dialog-head">
+          <div>
+            <p class="eyebrow">Compras parceladas</p>
+            <h2 id="nubankDialogTitle">Despesas fixas - Cartao</h2>
+          </div>
+          <button class="icon-button" id="closeNubankDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <article class="nubank-total-panel">
+          <p>Total deste mes</p>
+          <strong id="nubankMonthTotal">R$ 0,00</strong>
+        </article>
+        <form id="nubankBaseForm" class="nubank-base-form">
+          <label>
+            Valor ja existente no mes
+            <input id="nubankBaseAmount" class="money-input" inputmode="numeric" value="0,00" />
+          </label>
+          <button class="secondary-button" type="submit">Atualizar valor</button>
+        </form>
+        <div class="section-title-row">
+          <div>
+            <h3>Parcelas deste mes</h3>
+            <p class="small">As compras abaixo aparecem somente nesta janela.</p>
+          </div>
+          <button class="primary-button nubank-add-button" id="openNubankPurchase" type="button">+ Compra</button>
+        </div>
+        <div id="nubankInstallmentList" class="list"></div>
+      </div>
+    </dialog>
+
+    <dialog id="nubankPurchaseDialog" class="dialog">
+      <form id="nubankPurchaseForm" novalidate>
+        <div class="dialog-head">
+          <h2 id="nubankPurchaseDialogTitle">Nova compra parcelada</h2>
+          <button class="icon-button" id="closeNubankPurchaseDialog" type="button" aria-label="Fechar">x</button>
+        </div>
+        <input id="nubankPurchaseId" type="hidden" />
+        <label>
+          Nome da compra
+          <input id="nubankPurchaseName" required autocomplete="off" />
+        </label>
+        <label>
+          Valor de cada parcela
+          <input id="nubankPurchaseAmount" class="money-input" required inputmode="numeric" value="0,00" />
+        </label>
+        <label>
+          Parcela deste mes
+          <input id="nubankPurchaseCurrent" required inputmode="numeric" value="1" />
+        </label>
+        <label>
+          Total de parcelas
+          <input id="nubankPurchaseTotal" required inputmode="numeric" value="1" />
+        </label>
+        <button class="primary-button" type="submit">Salvar compra</button>
+        <button class="secondary-button danger-button" id="deleteNubankPurchase" type="button" hidden>Excluir compra inteira</button>
+      </form>
+    </dialog>
+
+    <div id="undoToast" class="undo-toast" hidden>
+      <span>Lancamento excluido</span>
+      <button id="undoDeleteButton" type="button">Desfazer</button>
+    </div>
 
     <script src="data.js"></script>
     <script src="app.js" defer></script>
