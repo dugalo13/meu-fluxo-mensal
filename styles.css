@@ -739,29 +739,27 @@ body[data-theme="light"] .bottom-nav {
   padding: 16px;
 }
 
-.nubank-total-panel {
-  border-radius: 8px;
-  background: var(--blue);
-  color: #050708;
-  padding: 14px;
-}
-
-.nubank-total-panel p {
-  margin-bottom: 4px;
-  font-size: 0.82rem;
-  font-weight: 800;
-}
-
-.nubank-total-panel strong {
-  font-size: 1.55rem;
-}
-
 .nubank-base-form {
   display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   gap: 10px;
   align-items: end;
   padding: 0;
+}
+
+.nubank-total-input {
+  border-color: var(--blue);
+  font-size: 1.12rem;
+  font-weight: 900;
+}
+
+.nubank-base-form input[readonly] {
+  color: var(--muted);
+  background: var(--panel);
+}
+
+.nubank-base-form button {
+  grid-column: 1 / -1;
 }
 
 .nubank-add-button {

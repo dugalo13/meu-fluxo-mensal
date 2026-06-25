@@ -222,16 +222,16 @@
           </div>
           <button class="icon-button" id="closeNubankDialog" type="button" aria-label="Fechar">x</button>
         </div>
-        <article class="nubank-total-panel">
-          <p>Total deste mes</p>
-          <strong id="nubankMonthTotal">R$ 0,00</strong>
-        </article>
         <form id="nubankBaseForm" class="nubank-base-form">
           <label>
-            Valor ja existente no mes
-            <input id="nubankBaseAmount" class="money-input" inputmode="numeric" value="0,00" />
+            Total deste mes
+            <input id="nubankMonthTotal" class="money-input nubank-total-input" inputmode="numeric" value="0,00" />
           </label>
-          <button class="secondary-button" type="submit">Atualizar valor</button>
+          <label>
+            Valor ja existente
+            <input id="nubankBaseAmount" value="0,00" readonly />
+          </label>
+          <button class="secondary-button" type="submit">Atualizar total</button>
         </form>
         <div class="section-title-row">
           <div>

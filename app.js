@@ -1292,9 +1292,9 @@ function renderNubankDialog() {
   const month = activeMonth();
   const values = nubankMonthValues(month);
   app.nubankDialogTitle.textContent = `Despesas fixas - Cartao - ${monthLabel(month)}`;
-  app.nubankMonthTotal.textContent = money.format(values.total);
+  app.nubankMonthTotal.value = formatMoneyInput(values.total);
   app.nubankBaseAmount.value = formatMoneyInput(values.base);
-  app.nubankBaseAmount.disabled = month.closed;
+  app.nubankMonthTotal.disabled = month.closed;
   app.nubankBaseForm.querySelector("button").disabled = month.closed;
   document.querySelector("#openNubankPurchase").disabled = month.closed;
   app.nubankInstallmentList.innerHTML = values.installments.length
@@ -1341,8 +1341,19 @@ function saveNubankBaseAmount(event) {
   event.preventDefault();
   const month = activeMonth();
   if (month.closed) return;
+  const installmentsTotal = nubankMonthValues(month).installmentsTotal;
+  const requestedTotal = parseAmount(app.nubankMonthTotal.value);
+  app.nubankMonthTotal.setCustomValidity(
+    requestedTotal >= installmentsTotal
+      ? ""
+      : `O total deve ser igual ou maior que ${money.format(installmentsTotal)}, que e a soma das parcelas deste mes.`
+  );
+  if (requestedTotal < installmentsTotal) {
+    app.nubankMonthTotal.reportValidity();
+    return;
+  }
   const aggregate = ensureNubankAggregate(month);
-  aggregate.nubank_base_amount = parseAmount(app.nubankBaseAmount.value);
+  aggregate.nubank_base_amount = sum([requestedTotal, -installmentsTotal]);
   syncNubankAggregate(month);
   syncCardOtherExpense(month);
   save();

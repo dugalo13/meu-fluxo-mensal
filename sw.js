@@ -1,4 +1,4 @@
-const CACHE_NAME = "meu-fluxo-public-v10";
+const CACHE_NAME = "meu-fluxo-public-v11";
 const ASSETS = [
   "./",
   "./index.html",
